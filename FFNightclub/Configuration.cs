@@ -1,9 +1,12 @@
-﻿using Dalamud.Configuration;
+using Dalamud.Configuration;
 using Dalamud.Plugin;
 using System;
 
-namespace SamplePlugin
+namespace FFNightclub
 {
+    public enum NameMode
+    { First, Last, Both }
+
     [Serializable]
     public class Configuration : IPluginConfiguration
     {

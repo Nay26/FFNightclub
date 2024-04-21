@@ -1,15 +1,15 @@
-﻿using System;
+using System;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
 
-namespace SamplePlugin.Windows;
+namespace FFNightclub.Windows;
 
 public class ConfigWindow : Window, IDisposable
 {
     private Configuration Configuration;
 
-    public ConfigWindow(Plugin plugin) : base(
+    public ConfigWindow(FFNightclub plugin) : base(
         "A Wonderful Configuration Window",
         ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
         ImGuiWindowFlags.NoScrollWithMouse)
@@ -20,7 +20,8 @@ public class ConfigWindow : Window, IDisposable
         this.Configuration = plugin.Configuration;
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    { }
 
     public override void Draw()
     {

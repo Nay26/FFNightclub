@@ -1,27 +1,38 @@
-﻿using Dalamud.Game.Command;
+using Dalamud.Game.Command;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using System.IO;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
-using SamplePlugin.Windows;
+using FFNightclub.Windows;
+using Dalamud.Game;
+using System;
 
-namespace SamplePlugin
+namespace FFNightclub
 {
-    public sealed class Plugin : IDalamudPlugin
+    public sealed class FFNightclub : IDalamudPlugin
     {
-        public string Name => "Sample Plugin";
-        private const string CommandName = "/pmycommand";
+        [PluginService] public static IClientState ClientState { get; private set; } = null!;
+        [PluginService] public static IObjectTable Objects { get; private set; } = null!;
+
+        [PluginService]
+        internal static IGameInteropProvider GameInteropProvider { get; private set; } = null!;
+
+        [PluginService] public static ISigScanner SigScanner { get; private set; } = null!;
+        [PluginService] public static IChatGui ChatGui { get; private set; } = null!;
+
+        public string Name => "FFNightclub";
+        private const string CommandName = "/test";
 
         private DalamudPluginInterface PluginInterface { get; init; }
         private ICommandManager CommandManager { get; init; }
         public Configuration Configuration { get; init; }
-        public WindowSystem WindowSystem = new("SamplePlugin");
+        public WindowSystem WindowSystem = new("FFNightclub");
 
         private ConfigWindow ConfigWindow { get; init; }
         private MainWindow MainWindow { get; init; }
 
-        public Plugin(
+        public FFNightclub(
             [RequiredVersion("1.0")] DalamudPluginInterface pluginInterface,
             [RequiredVersion("1.0")] ICommandManager commandManager)
         {
@@ -31,13 +42,9 @@ namespace SamplePlugin
             this.Configuration = this.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
             this.Configuration.Initialize(this.PluginInterface);
 
-            // you might normally want to embed resources and load them from the manifest stream
-            var imagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
-            var goatImage = this.PluginInterface.UiBuilder.LoadImage(imagePath);
-
             ConfigWindow = new ConfigWindow(this);
-            MainWindow = new MainWindow(this, goatImage);
-            
+            MainWindow = new MainWindow(this);
+
             WindowSystem.AddWindow(ConfigWindow);
             WindowSystem.AddWindow(MainWindow);
 
@@ -53,10 +60,10 @@ namespace SamplePlugin
         public void Dispose()
         {
             this.WindowSystem.RemoveAllWindows();
-            
+
             ConfigWindow.Dispose();
             MainWindow.Dispose();
-            
+
             this.CommandManager.RemoveHandler(CommandName);
         }
 
