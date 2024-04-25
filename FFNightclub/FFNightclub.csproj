@@ -6,9 +6,9 @@
     <Authors></Authors>
     <Company></Company>
     <Version>0.0.0.1</Version>
-    <Description>A FFNightclub Plugin.</Description>
+    <Description>A FFNightClub Plugin.</Description>
     <Copyright></Copyright>
-    <PackageProjectUrl>https://github.com/Nay26/FFNightclub</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/Nay26/FFNightClub</PackageProjectUrl>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <IsPackable>false</IsPackable>
   </PropertyGroup>

@@ -3,21 +3,31 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
+using FFNightclub.Models;
 using FFNightClub.Config;
+using static Dalamud.Interface.Utility.Raii.ImRaii;
 
 namespace FFNightClub.Models
 {
-    public class Player
+    public class RPGPlayer
     {
         public int ID;
         public string Name = "";
         public string Alias = "";
+        public float HP = 100;
+        public float Money = 0;
+        public string StartingMoney = "";
+        public bool hasPaid = false;
         public int Roll;
-        public int wins = 0;
-        public int losses = 0;
-        public bool enabled = true;
-        public Dictionary<Player, int> lossesToPlayer = new Dictionary<Player, int>();
-        public Dictionary<Player, int> winsToPlayer = new Dictionary<Player, int>();
+        public RPGStats RPGStats = new RPGStats();
+
+        public int Stat1 = 0;
+        public int Stat2 = 1;
+        public int Stat3 = 2;
+        public int Stat4 = 3;
+        public int Stat5 = 4;
+        public List<int> statStartingList = new List<int>();
 
         private enum ChatNameDisplayTypes
         { FullName, SurnameAbbrv, ForenameAbbrv, Initials }
@@ -25,15 +35,19 @@ namespace FFNightClub.Models
         private unsafe ChatNameDisplayTypes ChatNameDisplayType
         { get { return ChatNameDisplayTypes.FullName; } }
 
-        public Player()
+        public RPGPlayer()
         {
+            HP = 100;
+            Money = 0;
         }
 
-        public Player(int id, string name = "", string alias = "")
+        public RPGPlayer(int id, string name = "", string alias = "")
         {
             ID = id;
             Name = name;
             Alias = alias;
+            HP = 100;
+            Money = 0;
         }
 
         public string GetAlias(NameMode nameMode)

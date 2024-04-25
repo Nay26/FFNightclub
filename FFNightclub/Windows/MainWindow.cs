@@ -4,25 +4,34 @@ using System.ComponentModel.Design;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using Dalamud.Interface.Colors;
 using Dalamud.Interface.Internal;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
-using FFNightclub.Models;
+using FFNightClub.Modules;
+using FFNightClub.Config;
+using FFNightClub.Models;
+using FFNightClub.Modules;
 using FFXIVClientStructs.Havok;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
+using static FFXIVClientStructs.FFXIV.Client.Game.Control.GazeController;
 using static Lumina.Data.Parsing.Layer.LayerCommon;
 
-namespace FFNightclub.Windows;
+namespace FFNightClub.Windows;
 
 public class MainWindow : Window, IDisposable
 {
-    private FFNightclub Plugin;
-    public List<Player> SessionPlayerList;
-    public Player newPlayer;
+    private FFNightClub Plugin;
+    public static Configuration Config { get; set; }
+    public TruthOrDareGame TruthOrDareGame;
+    public GambaRPGGame GambaRPGGame;
+    public PlayerList PlayerList;
+    private MainTab currentMainTab = MainTab.PlayerList;
 
-    public MainWindow(FFNightclub plugin) : base(
+
+    public MainWindow(FFNightClub plugin) : base(
         "Night Club Stalker", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
         this.SizeConstraints = new WindowSizeConstraints
@@ -32,129 +41,109 @@ public class MainWindow : Window, IDisposable
         };
 
         this.Plugin = plugin;
-        SessionPlayerList = new List<Player>();
-        newPlayer = new Player();
+        TruthOrDareGame = new TruthOrDareGame(this);
+        GambaRPGGame = new GambaRPGGame(this);
+        PlayerList = new PlayerList(this);
     }
 
-    private void ExportPlayerList()
+    public void Initialize()
     {
-        string csvHeaderRow = String.Join(",", typeof(Player).GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(x => x.Name).ToArray<string>()) + Environment.NewLine;
-        string csv = csvHeaderRow + String.Join(Environment.NewLine, SessionPlayerList.Select(x => x.ToString()).ToArray());
-        PluginLog.Debug(csv);
-    }
-
-    private void ImportPlayerList()
-    {
-        string csvHeaderRow = String.Join(",", typeof(Player).GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(x => x.Name).ToArray<string>()) + Environment.NewLine;
-        string csv = csvHeaderRow + String.Join(Environment.NewLine, SessionPlayerList.Select(x => x.ToString()).ToArray());
-        PluginLog.Debug(csv);
-    }
-
-    private void UpdatePlayerList()
-    {
-        var localPlayers = FFNightclub.Objects.Where(o => o.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player).ToList();
-        if (localPlayers != null)
-        {
-            foreach (var player in localPlayers)
-            {
-                newPlayer.Name = player.Name.TextValue;
-                newPlayer.ID = Int32.Parse(player.ObjectId.ToString());
-                AddPlayer();
-            }
-        }
-    }
-
-    private void AddPlayer()
-    {
-        if (string.IsNullOrEmpty(newPlayer.Name))
-            return;
-
-        if (SessionPlayerList.FirstOrDefault(p => p.ID == newPlayer.ID) == null)
-        {
-            Player p = new Player()
-            {
-                Name = newPlayer.Name,
-                ID = newPlayer.ID,
-                FirstSeen = DateTime.Now.ToString(),
-                LastSeen = DateTime.Now.ToString(),
-            };
-            p.Alias = p.GetAlias(NameMode.Both);
-            SessionPlayerList.Add(p);
-        }
-        else
-        {
-            SessionPlayerList.FirstOrDefault(p => p.ID == newPlayer.ID).LastSeen = DateTime.Now.ToString();
-        }
-        SessionPlayerList = SessionPlayerList.OrderBy(p => p.Name).ToList();
-        SessionPlayerList = SessionPlayerList.OrderByDescending(p => p.LastSeen).ToList();
-    }
-
-    private void RemovePlayer(int id)
-    {
-        var p = SessionPlayerList.Find(p => p.ID == id);
-        if (p != null)
-        {
-            SessionPlayerList.Remove(p);
-        }
+        TruthOrDareGame = new TruthOrDareGame(this);
+        GambaRPGGame = new GambaRPGGame(this);
+        PlayerList = new PlayerList(this);
     }
 
     public void Dispose()
     {
     }
 
-    private void DrawPlayerTable()
-    {
-        ImGui.BeginTable("Player List", 5, ImGuiTableFlags.ScrollY | ImGuiTableFlags.Reorderable | ImGuiTableFlags.Resizable);
-        ImGui.TableSetupColumn("ID");
-        ImGui.TableSetupColumn("Name");
-        ImGui.TableSetupColumn("First Seen");
-        ImGui.TableSetupColumn("Last Seen");
-        ImGui.TableSetupColumn("Notes");
-        ImGui.TableHeadersRow();
-        ImGui.TableNextRow();
-        foreach (var player in SessionPlayerList)
-        {
-            ImGui.TableNextColumn();
-            ImGui.Text(player.ID.ToString());
-            ImGui.TableNextColumn();
-            ImGui.Text(player.Name);
-            ImGui.TableNextColumn();
-            ImGui.Text(player.FirstSeen);
-            ImGui.TableNextColumn();
-            ImGui.Text(player.LastSeen);
-            ImGui.TableNextColumn();
-            ImGui.Text("Notes Here");
-            ImGui.TableNextRow();
-        }
-
-        ImGui.EndTable();
-    }
+    public void Close_Window(object? sender, System.EventArgs e) => IsOpen = false;
 
     public override void Draw()
     {
-        ImGui.Text($"The random config bool is {this.Plugin.Configuration.SomePropertyToBeSavedAndWithADefault}");
-
-        if (ImGui.Button("Show Settings"))
+        DrawMainTabs();
+        switch (currentMainTab)
         {
-            this.Plugin.DrawConfigUI();
+            case MainTab.PlayerList:
+                {
+                    PlayerList.DrawPlayerList();
+                    break;
+                }
+            case MainTab.TruthOrDare:
+                {
+                    TruthOrDareGame.DrawMatch();
+                    break;
+                }
+            case MainTab.GambaRPG:
+                {
+                    GambaRPGGame.DrawMatch();
+                    break;
+                }
+            case MainTab.About:
+                {
+                    DrawAbout();
+                    break;
+                }
+            default:
+                PlayerList.DrawPlayerList();
+                break;
         }
+    }
 
+    private void DrawMainTabs()
+    {
+        if (ImGui.BeginTabBar("FFNightClubMainTabBar", ImGuiTabBarFlags.NoTooltip))
+        {
+            if (ImGui.BeginTabItem("Player List###FFNightClub_PlayerList_MainTab"))
+            {
+                currentMainTab = MainTab.PlayerList;
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Truth Or Dare###FFNightClub_Match_MainTab"))
+            {
+                currentMainTab = MainTab.TruthOrDare;
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Gamba Rpg###FFNightClub_RPG_MainTab"))
+            {
+                currentMainTab = MainTab.GambaRPG;
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("About###FFNightClub_About_MainTab"))
+            {
+                currentMainTab = MainTab.About;
+                ImGui.EndTabItem();
+            }
+
+            ImGui.EndTabBar();
+            ImGui.Spacing();
+        }
+    }
+
+    private void DrawAbout()
+    {
+        ImGui.TextColored(ImGuiColors.DalamudGrey, "About");
+        ImGui.TextWrapped("Made by Adiana Umbra@Cerberus");
+        ImGui.TextWrapped("Thanks to Amazing Primu Pyon@Omega who's code I have shamelessly modified");
+        ImGui.Separator();
         ImGui.Spacing();
-        if (ImGui.Button("Scan for players"))
+        ImGui.TextWrapped("+ Use Add Party to add all players in your current party to the player list(Have to be nearby).");
+        ImGui.TextWrapped("+ Use Add Target to add current target to the player list");
+        ImGui.TextWrapped("+ Or type a name and add it manually");
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextWrapped("1) Press New Round to begin a new round");
+        ImGui.TextWrapped("2) Press Roll Next Player to roll the dice for the next player. (Has to be one at a time due to chat spam limits)");
+        ImGui.TextWrapped("3) Once all players have been rolled (no longer have a roll of -1) click declare results");
+        ImGui.Columns(1);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(5);
+        if (ImGui.Button("Close"))
         {
-            UpdatePlayerList();
+            IsOpen = false;
         }
-        if (ImGui.Button("Export Player List"))
-        {
-            ExportPlayerList();
-        }
-        if (ImGui.Button("Import Player List"))
-        {
-            ImportPlayerList();
-        }
-        ImGui.Text("Player List:");
-        ImGui.SameLine();
-        ImGui.Text(SessionPlayerList.Count.ToString());
-        DrawPlayerTable();
     }
 }

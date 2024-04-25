@@ -4,13 +4,16 @@ using Dalamud.Plugin;
 using System.IO;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
-using FFNightclub.Windows;
+using FFNightClub.Windows;
 using Dalamud.Game;
 using System;
+using FFNightClub.Config;
+using Util;
+using System.Linq;
 
-namespace FFNightclub
+namespace FFNightClub
 {
-    public sealed class FFNightclub : IDalamudPlugin
+    public sealed class FFNightClub : IDalamudPlugin
     {
         [PluginService] public static IClientState ClientState { get; private set; } = null!;
         [PluginService] public static IObjectTable Objects { get; private set; } = null!;
@@ -20,33 +23,31 @@ namespace FFNightclub
 
         [PluginService] public static ISigScanner SigScanner { get; private set; } = null!;
         [PluginService] public static IChatGui ChatGui { get; private set; } = null!;
+        public static Chat Chat;
 
-        public string Name => "FFNightclub";
+        public string Name => "FFNightClub";
         private const string CommandName = "/test";
-
         private DalamudPluginInterface PluginInterface { get; init; }
         private ICommandManager CommandManager { get; init; }
-        public Configuration Configuration { get; init; }
-        public WindowSystem WindowSystem = new("FFNightclub");
 
-        private ConfigWindow ConfigWindow { get; init; }
-        private MainWindow MainWindow { get; init; }
+        private static MainWindow MainWindow;
+        public WindowSystem WindowSystem = new("FFNightClub");
 
-        public FFNightclub(
+        public FFNightClub(
             [RequiredVersion("1.0")] DalamudPluginInterface pluginInterface,
             [RequiredVersion("1.0")] ICommandManager commandManager)
         {
             this.PluginInterface = pluginInterface;
             this.CommandManager = commandManager;
 
-            this.Configuration = this.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-            this.Configuration.Initialize(this.PluginInterface);
-
-            ConfigWindow = new ConfigWindow(this);
-            MainWindow = new MainWindow(this);
-
-            WindowSystem.AddWindow(ConfigWindow);
+            WindowSystem = new WindowSystem(Name);
+            MainWindow = new MainWindow(this) { IsOpen = false };
+            MainWindow.Config = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+            Chat = new Chat();
+            MainWindow.Config.Initialize(PluginInterface);
             WindowSystem.AddWindow(MainWindow);
+            MainWindow.Initialize();
+
 
             this.CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
             {
@@ -54,16 +55,14 @@ namespace FFNightclub
             });
 
             this.PluginInterface.UiBuilder.Draw += DrawUI;
-            this.PluginInterface.UiBuilder.OpenConfigUi += DrawConfigUI;
+
+            ChatGui.ChatMessage += MainWindow.TruthOrDareGame.OnChatMessage;
+
         }
 
         public void Dispose()
         {
             this.WindowSystem.RemoveAllWindows();
-
-            ConfigWindow.Dispose();
-            MainWindow.Dispose();
-
             this.CommandManager.RemoveHandler(CommandName);
         }
 
@@ -76,11 +75,6 @@ namespace FFNightclub
         private void DrawUI()
         {
             this.WindowSystem.Draw();
-        }
-
-        public void DrawConfigUI()
-        {
-            ConfigWindow.IsOpen = true;
         }
     }
 }
