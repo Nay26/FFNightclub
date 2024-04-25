@@ -20,7 +20,7 @@ namespace FFNightClub
 
         [PluginService]
         internal static IGameInteropProvider GameInteropProvider { get; private set; } = null!;
-
+        [PluginService] public static IPluginLog Log { get; private set; } = null!;
         [PluginService] public static ISigScanner SigScanner { get; private set; } = null!;
         [PluginService] public static IChatGui ChatGui { get; private set; } = null!;
         public static Chat Chat;
@@ -57,7 +57,7 @@ namespace FFNightClub
             this.PluginInterface.UiBuilder.Draw += DrawUI;
 
             ChatGui.ChatMessage += MainWindow.TruthOrDareGame.OnChatMessage;
-
+            ChatGui.ChatMessage += MainWindow.GambaRPGGame.OnChatMessage;
         }
 
         public void Dispose()

@@ -17,6 +17,10 @@ using FFNightclub.Models;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using static FFXIVClientStructs.FFXIV.Client.UI.Misc.GroupPoseModule;
 using System.Diagnostics;
+using Dalamud.Logging;
+using Dalamud.Plugin.Services;
+using Dalamud.Logging.Internal;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace FFNightClub.Modules
 {
@@ -60,12 +64,15 @@ namespace FFNightClub.Modules
             RPGPlayers = new List<RPGPlayer>()
             {
             };
+            CurrentEvent = Event.ConfigureSettings;
+            CurrentGameEvent = GameEvent.WaitingForNextEvent;
         }       
 
         public void DrawMatch()
         {
             if (ImGui.Button("Start New Game"))
             {
+                SendMessage($"{MainWindow.Config.GambaRPGConfig.Messages["ExplainRules"]}");
                 StartGame();
             }
             ImGui.Separator();
@@ -81,7 +88,7 @@ namespace FFNightClub.Modules
                 ImGui.Text("Take Player Payments :");
                 DrawTakePayments();
             }
-
+           
             if (CurrentEvent == Event.CharacterCreation)
             {
                 ImGui.Separator();
@@ -91,6 +98,7 @@ namespace FFNightClub.Modules
 
             if (CurrentEvent == Event.GameRunning)
             {
+
                 ImGui.Separator();
                 ImGui.Text("Players");
                 DrawPlayers();
@@ -102,10 +110,9 @@ namespace FFNightClub.Modules
                     {
                         CurrentPlayer = RPGPlayers[0];                       
                         CurrentRPGEvent = new RPGEvent();
-
-                        SendOptionRoll();
-                        
-                        CurrentRPGEventOption = CurrentRPGEvent.Options.Where(o => o.Stat == (Stats)(Roll - 1)).FirstOrDefault();
+                        SendMessage($"{CurrentRPGEvent.IntroText}");
+                        SendOptionRoll();                     
+                        CurrentRPGEventOption = CurrentRPGEvent.Options.Where(o => o.Stat == (Stats)(Roll)).FirstOrDefault();
                         if (CurrentRPGEventOption == null)
                         {
                             CurrentRPGEventOption = CurrentRPGEvent.Options[0];
@@ -122,6 +129,16 @@ namespace FFNightClub.Modules
 
             if (CurrentGameEvent == GameEvent.ProcessingEvent)
             {
+                if (ImGui.Button("Start Next Event"))
+                {
+                    SendMessage($"{MainWindow.Config.GambaRPGConfig.Messages["NewEvent"]}");
+                    CurrentPlayer = RPGPlayers[0];
+                    CurrentRPGEvent = new RPGEvent();
+
+                    SendOptionRoll();
+                   
+                    CurrentGameEvent = GameEvent.EventStarted;
+                }
                 DrawEventOutcome();
             }
 
@@ -147,6 +164,7 @@ namespace FFNightClub.Modules
         {
             if (ImGui.Button("Go To Take Payments"))
             {
+                SendMessage($"{MainWindow.Config.GambaRPGConfig.Messages["TakePayments"]}");
                 CurrentEvent = Event.TakePayments;
             }
         }
@@ -186,6 +204,7 @@ namespace FFNightClub.Modules
                     {
                         player.Money = float.Parse(player.StartingMoney);
                     }
+                    SendMessage($"{MainWindow.Config.GambaRPGConfig.Messages["CharacterCreation"]}");
                     CurrentEvent = Event.CharacterCreation;
 
                 }
@@ -222,6 +241,7 @@ namespace FFNightClub.Modules
                         player.RPGStats.SetValue((Stats)player.Stat4, -1);
                         player.RPGStats.SetValue((Stats)player.Stat5, -2);
                     }
+                    SendMessage($"{MainWindow.Config.GambaRPGConfig.Messages["StartGame"]}");
                     CurrentEvent = Event.GameRunning;
 
                 }
@@ -316,6 +336,7 @@ namespace FFNightClub.Modules
             {
                 statSelected = CurrentRPGEventOption.Stat;
                 CurrentGameEvent = GameEvent.ProcessingEvent;
+                
             }
             ImGui.TableNextColumn();
             ImGui.Text(CurrentRPGEventOption.Stat.ToString());
@@ -362,9 +383,18 @@ namespace FFNightClub.Modules
         {
             try
             {
-                LastRoll = int.Parse(MainWindow.Config.RollCommand == "/dice 20" ? message.Replace("Random! (1-5) ", "") : Regex.Replace(message, ".*You roll a ([^\\(]+)\\(.*", "$1", RegexOptions.Singleline).Trim());
-                Roll = LastRoll;      
-                SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["OptionsRolled"], CurrentPlayer)}");   
+                var str = message.Replace("Random! (1-5) ", "");
+                Roll = int.Parse(str);
+                Roll -= 1;
+                FFNightClub.Log.Debug($"+++ {(Stats)(Roll)} +++ {Roll}");
+                FFNightClub.Log.Debug($"+++ {CurrentRPGEvent.Options.Where(o => o.Stat == (Stats)(Roll)).FirstOrDefault().Description}");
+                CurrentRPGEventOption = CurrentRPGEvent.Options.Where(o => o.Stat == (Stats)(Roll)).FirstOrDefault();
+                if (CurrentRPGEventOption == null)
+                {
+                    CurrentRPGEventOption = CurrentRPGEvent.Options[0];
+                }
+                SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["OptionsRolled"], CurrentPlayer)}");
+                SendMessage($"{CurrentRPGEventOption.Description}");
             }
             catch { }
         }
