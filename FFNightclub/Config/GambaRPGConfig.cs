@@ -13,18 +13,21 @@ namespace FFNightclub.Config
         public int PlayerRoll { get; set; } = 20;
 
         public Dictionary<string, string> Messages = new Dictionary<string, string>() {
-            { "StartGame", " **  STARTING A NEW ADIVENTURE! <se.12>  **" },
-            { "ExplainRules", "** Welcome to  Adiventure Quest!  An exciting journey through a fantasy world! Dare you put your hard earned gil on the line for a chance at greater treasure? **" },
-            { "TakePayments", "** Please trade your starting gil with the  Games Master!  Your potential rewards and losses will be proportional to the gil you trade! **" },
-            { "CharacterCreation", "** Your Character has 5 Stats: Fighty, Sneaky, Brainy, Talky and Lusty. Please send a message of of your preferred order (Most Important --> Least Important). Roll bonuses will be : (+2, +1, 0, -1, -2) **" },
-            { "GameBegins" , "**  Time to begin your quests!  <se.12> **" },
-            { "NewEvent", "**  NEW EVENT HAPPENING!  <se.12> **" },
-            { "PlayerDecided", "**  #player#  #description# **" },
-            { "OptionsRolled", "**  #player#!  A test of  #availableOption#  presents itself! **" },
-            { "AskPlayerOption", "** Try to use your :  #availableOption#  ? (Beat : #optionDC# with 1d20 #playerSkill#). Or bind the winds of chaos to  reroll  the event? #PlayerRerolls#/#maxRerolls# available. **" },
-            { "PlayerRoll", "**  #player#!  Rolled a #adjustedRoll#! (#roll# #playerSkill#) **" },
-            { "OptionSuccess", "**  #player#!  #optionSuccess# **" },
-            { "OptionFailure", "**  #player#!  #optionFailure# **" }
+            { "StartGame", " **  STARTING A NEW ADIVENTURE! <se.12>  **" },
+            { "ExplainRules", "** Welcome to  Adiventure Quest!  An exciting journey through a fantasy world! Dare you put your hard earned gil on the line for a chance at greater treasure? <se.12> **" },
+            { "TakePayments", "** Please trade your starting gil with the  Games Master!  Your potential rewards and losses will be proportional to the gil you trade! <se.12> **" },
+            { "CharacterCreation", "** Your Character has 5 Stats: FIGHTY, SNEAKY, BRAINY, TALKY and LUSTY. Please send a message of of your preferred order (Most Important --> Least Important). Roll bonuses will be : (+2, +1, 0, -1, -2) <se.12> **" },
+            { "NewEvent", "**  NEW EVENT HAPPENING!  <se.12> **" },
+            { "NewRound", "**  NEXT ROUND!  <se.12> **" },
+            { "PlayerDecided", "**  #player#  #description# **" },
+            { "OptionsRolled", "**  #player#  A test of  #availableOption#  presents itself! **" },
+            { "AskPlayerOption", "**  #player#  Try to use your :  #availableOption#  ? (Match or beat #optionDC# with 1d20 #playerSkill#) (You stand to win or loose #moneyGain# Gil of your current #playerMoney# Gil). Or bind the winds of chaos to  REROLL  the event? #PlayerRerolls#/#maxRerolls# available. **" },
+            { "PlayerRoll", "**  #player#  Rolled a #adjustedRoll#! (#roll# #playerSkill#) **" },
+            { "OptionSuccess", "**  #player#  #optionSuccess# **" },
+            { "OptionFailure", "**  #player#  #optionFailure# **" },
+            { "MoneyGain", "**  #player#  has WON #moneyGain# Gil! leaving them with #playerMoney# Gil Remaining  <se.12> **" },
+            { "MoneyLoss", "**  #player#  has LOST #moneyGain# Gil! leaving them with #playerMoney# Gil Remaining  <se.11> **" },
+            { "Reroll", "**  #player#  Is rerolling! Good luck! <se.11> **" }
         };
 
         public List<RPGEvent> Events = new List<RPGEvent>() {

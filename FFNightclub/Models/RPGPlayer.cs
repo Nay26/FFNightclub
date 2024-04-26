@@ -15,7 +15,6 @@ namespace FFNightClub.Models
         public int ID;
         public string Name = "";
         public string Alias = "";
-        public float HP = 100;
         public float Money = 0;
         public string StartingMoney = "";
         public bool hasPaid = false;
@@ -38,7 +37,6 @@ namespace FFNightClub.Models
 
         public RPGPlayer()
         {
-            HP = 100;
             Money = 0;
         }
 
@@ -47,7 +45,6 @@ namespace FFNightClub.Models
             ID = id;
             Name = name;
             Alias = alias;
-            HP = 100;
             Money = 0;
         }
 

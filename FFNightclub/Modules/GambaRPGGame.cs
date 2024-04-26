@@ -23,6 +23,10 @@ using Dalamud.Logging.Internal;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using FFNightclub.Config;
 
+//End Game Payout Screen
+//Round stat update
+//Config set
+
 namespace FFNightClub.Modules
 {
     public class GambaRPGGame
@@ -57,7 +61,8 @@ namespace FFNightClub.Modules
         private static Random rng = new Random();
         private string debug = "not recieved";
         private int Roll;
-        private List<RPGPlayer> RoundRPGPlayers; 
+        private List<RPGPlayer> RoundRPGPlayers;
+        private float CurrentMoneyGain = 1;
 
         public GambaRPGGame(MainWindow mainWindow)
         {
@@ -134,6 +139,7 @@ namespace FFNightClub.Modules
         {
             if (ImGui.Button("Start Next Event"))
             {
+                SendMessage("**  NEW EVENT HAPPENING!  <se.12> **");
                 DecideNewEvent();             
             }
         }
@@ -142,6 +148,7 @@ namespace FFNightClub.Modules
         {
             if (RoundRPGPlayers.Count < 1)
             {
+                SendMessage("**  NEW EVENT HAPPENING!  <se.12> **");
                 FFNightClub.Log.Debug("Next Round");
                 CurrentRound++;
                 if (CurrentRound > NumberOfRounds)
@@ -184,7 +191,19 @@ namespace FFNightClub.Modules
             CurrentPlayer = RPGPlayers.Where(p => p.Name.Equals(playerRef.Name)).FirstOrDefault();
             FFNightClub.Log.Debug($"++++++++ {CurrentPlayer.Name}");
             RoundRPGPlayers.Remove(playerRef);
-            SendMessage($"** {CurrentRPGEvent.IntroText} **");
+            SendMessage(FormatMessage($"**  #player#  {CurrentRPGEvent.IntroText} **", CurrentPlayer));
+            SendOptionRoll();
+            CurrentGameEvent = GameEvent.EventStarted;
+        }
+
+        private void RerollEvent()
+        {        
+            CurrentRPGEventOption = CurrentRPGEvent.Options.Where(o => o.Stat == (Stats)(Roll)).FirstOrDefault();
+            if (CurrentRPGEventOption == null)
+            {
+                CurrentRPGEventOption = CurrentRPGEvent.Options[0];
+            }          
+            SendMessage(FormatMessage($"**  #player#  {CurrentRPGEvent.IntroText} **", CurrentPlayer));
             SendOptionRoll();
             CurrentGameEvent = GameEvent.EventStarted;
         }
@@ -215,6 +234,7 @@ namespace FFNightClub.Modules
             RoundRPGPlayers = new List<RPGPlayer>();
             foreach (var player in RPGPlayers)
             {
+                player.ReRolls = MaxRerolls;
                 RoundRPGPlayers.Add(new RPGPlayer
                 {
                     Name = player.Name
@@ -346,7 +366,6 @@ namespace FFNightClub.Modules
             ImGui.Text("Players");
             ImGui.BeginTable("PRG Player List", 8, ImGuiTableFlags.Reorderable | ImGuiTableFlags.Resizable);
             ImGui.TableSetupColumn("Name");
-            ImGui.TableSetupColumn("HP");
             ImGui.TableSetupColumn("Money");
             ImGui.TableSetupColumn("Fighty");
             ImGui.TableSetupColumn("Sneaky");
@@ -359,8 +378,6 @@ namespace FFNightClub.Modules
             {
                 ImGui.TableNextColumn();
                 ImGui.Text(player.Name);
-                ImGui.TableNextColumn();
-                ImGui.Text(player.HP.ToString());
                 ImGui.TableNextColumn();
                 ImGui.Text(player.Money.ToString());
                 ImGui.TableNextColumn();
@@ -412,6 +429,25 @@ namespace FFNightClub.Modules
             ImGui.TableNextColumn();
             ImGui.Text(CurrentRPGEventOption.Description.ToString());
             ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            if (ImGui.Button($"Reroll {CurrentPlayer.ReRolls}/{MaxRerolls}"))
+            {
+                if (CurrentPlayer.ReRolls > 0)
+                {
+                    CurrentPlayer.ReRolls--;
+                    statSelected = CurrentRPGEventOption.Stat;
+                    CurrentGameEvent = GameEvent.ProcessingEvent;
+                    SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["Reroll"], CurrentPlayer)}");
+                    RerollEvent();
+                }
+            }
+            ImGui.TableNextColumn();
+            ImGui.Text("New Stat");
+            ImGui.TableNextColumn();
+            ImGui.Text("?");
+            ImGui.TableNextColumn();
+            ImGui.Text("Reroll for a different event option");
+            ImGui.TableNextRow();
             ImGui.EndTable();
         }
 
@@ -444,12 +480,17 @@ namespace FFNightClub.Modules
                 CurrentPlayer.Roll = int.Parse(message.Replace("Random! (1-20) ", ""));                
                 SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["PlayerRoll"], CurrentPlayer)}");
                 FFNightClub.Log.Debug($"Adjusted Roll : {CurrentPlayer.Roll + CurrentPlayer.RPGStats.GetValue(statSelected)}");
+                
                 if (CurrentPlayer.Roll+CurrentPlayer.RPGStats.GetValue(statSelected) >= CurrentRPGEventOption.SkillCheck) {
                     SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["OptionSuccess"], CurrentPlayer)}");
+                    CurrentPlayer.Money = CurrentPlayer.Money + CurrentMoneyGain;
+                    SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["MoneyGain"], CurrentPlayer)}");
                 }
                 else
                 {
                     SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["OptionFailure"], CurrentPlayer)}");
+                    CurrentPlayer.Money = CurrentPlayer.Money - CurrentMoneyGain;
+                    SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["MoneyLoss"], CurrentPlayer)}");
                 }
             }
             catch { }
@@ -468,6 +509,7 @@ namespace FFNightClub.Modules
                 {
                     CurrentRPGEventOption = CurrentRPGEvent.Options[0];
                 }
+                CurrentMoneyGain = float.Parse(CurrentPlayer.StartingMoney) * ((CurrentRPGEventOption.SkillCheck/20)/2);
                 SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["OptionsRolled"], CurrentPlayer)}");
                 SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["PlayerDecided"], CurrentPlayer)}");
                 SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["AskPlayerOption"], CurrentPlayer)}");
@@ -502,15 +544,17 @@ namespace FFNightClub.Modules
 
             return message.Replace("#dealer#", player.Alias)
                 .Replace("#player#", player.Alias)
-                .Replace("#availableOption#", ((Stats)Roll).ToString())
+                .Replace("#availableOption#", ((Stats)Roll).ToString().ToUpper())
                 .Replace("#optionDC#", CurrentRPGEventOption.SkillCheck.ToString())
                 .Replace("#roll#", CurrentPlayer.Roll.ToString())
                 .Replace("#playerSkill#", player.RPGStats.GetValue((Stats)Roll) >= 0 ? "+" + player.RPGStats.GetValue((Stats)Roll).ToString() : player.RPGStats.GetValue((Stats)Roll).ToString())
                 .Replace("#adjustedRoll#", (CurrentPlayer.Roll + CurrentPlayer.RPGStats.GetValue((Stats)Roll)).ToString())
-                .Replace("#description#", CurrentRPGEvent.IntroText)
+                .Replace("#description#", CurrentRPGEventOption.Description)
                 .Replace("#optionFailure#", CurrentRPGEventOption.FailureDescription)
                 .Replace("#optionSuccess#", CurrentRPGEventOption.SuccessDescription)
                 .Replace("#maxRerolls#", MaxRerolls.ToString())
+                .Replace("#playerMoney#", string.Format("{0:0,0}", CurrentPlayer.Money))
+                .Replace("#moneyGain#", string.Format("{0:0,0}", CurrentMoneyGain))
                 .Replace("#PlayerRerolls#", player.ReRolls.ToString());
         }
 
