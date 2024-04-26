@@ -19,6 +19,6 @@ namespace FFNightClub
 
     public enum MessageType
     {
-        Normal, TruthOrDareRoll, RPGOptionSelectRoll
+        Normal, TruthOrDareRoll, RPGOptionSelectRoll, RPGPlayerRoll
     }
 }
