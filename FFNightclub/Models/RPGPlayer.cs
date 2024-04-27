@@ -18,6 +18,7 @@ namespace FFNightClub.Models
         public float Money = 0;
         public string StartingMoney = "";
         public bool hasPaid = false;
+        public bool hasBeenPaid = false;
         public int Roll;
         public int ReRolls;
         public RPGStats RPGStats = new RPGStats();

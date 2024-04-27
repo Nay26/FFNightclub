@@ -23,10 +23,6 @@ using Dalamud.Logging.Internal;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using FFNightclub.Config;
 
-//End Game Payout Screen
-//Round stat update
-//Config set
-
 namespace FFNightClub.Modules
 {
     public class GambaRPGGame
@@ -34,7 +30,7 @@ namespace FFNightClub.Modules
         private readonly MainWindow MainWindow;
         private List<string> QueuedMessages = new List<string>();
         private enum Event
-        { ConfigureSettings, TakePayments, CharacterCreation, GameRunning }
+        { ConfigureSettings, TakePayments, CharacterCreation, GameRunning, GameOver }
         private Event CurrentEvent = Event.ConfigureSettings;
         private MessageType LastRoll = MessageType.RPGOptionSelectRoll;
         //Players
@@ -45,7 +41,8 @@ namespace FFNightClub.Modules
         private int NumberOfRounds = 3;
         private int CurrentRound = 0;
         private int MaxRerolls = 3;
-
+        private string MaxRerollsString = "3";
+        private string NumberOfRoundsString = "3";
         //Character Creation
         private string[] statList = { "Fighty", "Sneaky", "Brainy", "Talky", "Lusty" };
         private Stats statSelected;
@@ -77,6 +74,8 @@ namespace FFNightClub.Modules
             CurrentRound = 0;
             CurrentGameEvent = GameEvent.WaitingForNextEvent;
             CurrentPlayer = new RPGPlayer();
+            MaxRerolls = 3;
+            NumberOfRounds = 3;
         }
 
         private void GenerateRPGEvents()
@@ -127,12 +126,42 @@ namespace FFNightClub.Modules
                     DrawEventOutcome();
                 }
             }
-            
+
+            if (CurrentEvent == Event.GameOver)
+            {
+                DrawGameOver();
+            }
+
             if (QueuedMessages.Count > 0)
             {
                 FFNightClub.Chat.SendMessage(QueuedMessages[0]);
                 QueuedMessages.RemoveAt(0);
             }
+        }
+
+        private void DrawGameOver()
+        {
+            ImGui.Text("Take Player Payments :");
+            ImGui.BeginTable("GameOver", 4, ImGuiTableFlags.Reorderable | ImGuiTableFlags.Resizable);
+            ImGui.TableSetupColumn("Name");
+            ImGui.TableSetupColumn("Starting Money");
+            ImGui.TableSetupColumn("Ending Money");
+            ImGui.TableSetupColumn("Paid?");
+            ImGui.TableHeadersRow();
+            ImGui.TableNextRow();
+            foreach (var player in RPGPlayers)
+            {
+                ImGui.TableNextColumn();
+                ImGui.Text(player.Name);
+                ImGui.TableNextColumn();
+                ImGui.Text(string.Format("{0:0,0}", player.StartingMoney));
+                ImGui.TableNextColumn();
+                ImGui.Text(string.Format("{0:0,0}", player.Money));
+                ImGui.TableNextColumn();
+                ImGui.Checkbox($"{player.Name} Paid?", ref player.hasBeenPaid);
+                ImGui.TableNextRow();
+            }
+            ImGui.EndTable();
         }
 
         private void DrawStartNextEvent()
@@ -147,8 +176,7 @@ namespace FFNightClub.Modules
         private void DecideNewEvent()
         {
             if (RoundRPGPlayers.Count < 1)
-            {
-                SendMessage("**  NEW EVENT HAPPENING!  <se.12> **");
+            {             
                 FFNightClub.Log.Debug("Next Round");
                 CurrentRound++;
                 if (CurrentRound > NumberOfRounds)
@@ -166,11 +194,13 @@ namespace FFNightClub.Modules
                             Name = player.Name
                         });
                     }
+                    SendMessage($"{FormatMessage(MainWindow.Config.GambaRPGConfig.Messages["NewRound"], CurrentPlayer)}");
                     FFNightClub.Log.Debug("Next Event");
                     StartNextEvent();
                 }
             } else
             {
+                SendMessage("**  NEW EVENT HAPPENING!  <se.12> **");
                 FFNightClub.Log.Debug("Next Event");
                 StartNextEvent();
             }               
@@ -210,8 +240,9 @@ namespace FFNightClub.Modules
 
         private void EndGame()
         {
+            SendMessage($"{MainWindow.Config.GambaRPGConfig.Messages["GameOver"]}");
             CurrentGameEvent = GameEvent.WaitingForNextEvent;
-            CurrentEvent = Event.ConfigureSettings;
+            CurrentEvent = Event.GameOver;
         }
 
         private void DrawCommonGame()
@@ -248,9 +279,27 @@ namespace FFNightClub.Modules
             ImGui.Text("Configure Game : ");
             if (ImGui.Button("Go To Take Payments"))
             {
+                int.TryParse(NumberOfRoundsString, out NumberOfRounds);
+                int.TryParse(MaxRerollsString,out MaxRerolls);
+                foreach (var player in RPGPlayers)
+                {
+                    player.ReRolls = MaxRerolls;
+                }
                 SendMessage($"{MainWindow.Config.GambaRPGConfig.Messages["TakePayments"]}");
                 CurrentEvent = Event.TakePayments;
             }
+            ImGui.BeginTable("Config", 2, ImGuiTableFlags.Reorderable | ImGuiTableFlags.Resizable);
+            ImGui.TableSetupColumn("Rounds");
+            ImGui.TableSetupColumn("Player Rerolls");
+            ImGui.TableHeadersRow();
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.InputText($"###NumberOfRounds", ref NumberOfRoundsString, 255);
+            ImGui.TableNextColumn();
+            ImGui.InputText($"###MaxRerolls", ref MaxRerollsString, 255); 
+            ImGui.TableNextRow();
+            
+            ImGui.EndTable();
         }
 
         private void DrawTakePayments()
@@ -364,9 +413,11 @@ namespace FFNightClub.Modules
         private void DrawPlayers()
         {
             ImGui.Text("Players");
-            ImGui.BeginTable("PRG Player List", 8, ImGuiTableFlags.Reorderable | ImGuiTableFlags.Resizable);
+            ImGui.BeginTable("PRG Player List", 9, ImGuiTableFlags.Reorderable | ImGuiTableFlags.Resizable);
             ImGui.TableSetupColumn("Name");
+            ImGui.TableSetupColumn("Send info to chat?");
             ImGui.TableSetupColumn("Money");
+            ImGui.TableSetupColumn("Rerolls");
             ImGui.TableSetupColumn("Fighty");
             ImGui.TableSetupColumn("Sneaky");
             ImGui.TableSetupColumn("Brainy");
@@ -379,7 +430,15 @@ namespace FFNightClub.Modules
                 ImGui.TableNextColumn();
                 ImGui.Text(player.Name);
                 ImGui.TableNextColumn();
-                ImGui.Text(player.Money.ToString());
+                if (ImGui.Button($"Send Info for {player.Name}"))
+                {               
+                    SendPlayerRoll();
+                    SendMessage($"**  {player.Name}  : GIL {player.Money}/{player.StartingMoney} : REROLLS {player.ReRolls}/{MaxRerolls} : STATS FIGHTY {player.RPGStats.Fighty.Value}, SNEAKY {player.RPGStats.Fighty.Value}, BRAINY {player.RPGStats.Fighty.Value}, TALKY {player.RPGStats.Fighty.Value} and LUSTY {player.RPGStats.Fighty.Value} **");
+                }
+                ImGui.TableNextColumn();
+                ImGui.Text(string.Format("{0:0,0}", player.Money.ToString()) + " / " + string.Format("{0:0,0}", player.StartingMoney));
+                ImGui.TableNextColumn();
+                ImGui.Text(player.ReRolls.ToString());
                 ImGui.TableNextColumn();
                 ImGui.Text(player.RPGStats.Fighty.Value.ToString());
                 ImGui.TableNextColumn();
@@ -555,7 +614,9 @@ namespace FFNightClub.Modules
                 .Replace("#maxRerolls#", MaxRerolls.ToString())
                 .Replace("#playerMoney#", string.Format("{0:0,0}", CurrentPlayer.Money))
                 .Replace("#moneyGain#", string.Format("{0:0,0}", CurrentMoneyGain))
-                .Replace("#PlayerRerolls#", player.ReRolls.ToString());
+                .Replace("#PlayerRerolls#", player.ReRolls.ToString())
+                .Replace("#currentRound#", CurrentRound.ToString())
+                .Replace("#startingRound#", NumberOfRounds.ToString());
         }
 
         private void SendMessage(string message)
